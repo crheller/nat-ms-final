@@ -4,11 +4,11 @@ from global_settings import CPN_SITES
 batch = 331  # 294 / 322
 force_rerun = True
 
-script = '/auto/users/hellerc/code/projects/nat_pupil_ms/single_cell/fit_script.py'
+script = '/auto/users/hellerc/code/projects/nat-ms-final/single_cell/fit_script.py'
 python_path = '/auto/users/hellerc/anaconda3/envs/lbhb/bin/python'
 
-modelnames = ['ns.fs4.pup-ld-st.pup-hrc-psthfr_stategain.SxR.bound_jk.nf10-basic',
-              'ns.fs4.pup-ld-st.pup0-hrc-psthfr_stategain.SxR.bound_jk.nf10-basic']
+modelnames = ['ns.fs4.pup-ld-st.pup-hrc-psthfr_stategain.SxR_jk.nf10-basic',
+              'ns.fs4.pup-ld-st.pup0-hrc-psthfr_stategain.SxR_jk.nf10-basic']
 
 if batch == 294:
     modelnames = [m.replace('pup-ld', 'pup.voc-ld') for m in modelnames]
