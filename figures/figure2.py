@@ -3,8 +3,10 @@ experimental set up, example single trial population responses and pupil pupil t
     Also - gain modulation and delta noise correlation
     Consideration - show scatter plot of model performance, or should this be supplemental?
 """
-from path_settings import PY_FIGURES_DIR2, PY_FIGURES_DIR3
-from global_settings import ALL_SITES, HIGHR_SITES, CPN_SITES
+import sys
+sys.path.append("/auto/users/hellerc/code/projects/nat-ms-final/")
+from path_settings import PY_FIGURES_DIR
+from global_settings import HIGHR_SITES, CPN_SITES
 import colors
 from charlieTools.statistics import get_bootstrapped_sample, get_direct_prob
 import load_results as ld
@@ -29,7 +31,7 @@ mpl.rcParams['font.size'] = 8
 sites = HIGHR_SITES + CPN_SITES
 
 savefig = True
-fig_fn = PY_FIGURES_DIR3 + 'fig1_example.svg'
+fig_fn = PY_FIGURES_DIR + 'figure1.svg'
 mi_bins = np.arange(-0.6, 0.6, 0.05)
 
 f = plt.figure(figsize=(7.5, 3.5))
@@ -132,9 +134,9 @@ pax.set_ylim((pdata.min(), pdata.max()))
 
 # plot MI
 path = '/auto/users/hellerc/results/nat_pupil_ms/first_order_model_results/'
-df = pd.concat([pd.read_csv(os.path.join(path,'d_289_pup_sdexp.csv'), index_col=0),
-                pd.read_csv(os.path.join(path,'d_294_pup_sdexp.csv'), index_col=0),
-                pd.read_csv(os.path.join(path,'d_331_pup_sdexp.csv'), index_col=0)])
+df = pd.concat([pd.read_csv(os.path.join(path,'d_322_pup_stategain.csv'), index_col=0),
+                pd.read_csv(os.path.join(path,'d_294_pup_stategain.csv'), index_col=0),
+                pd.read_csv(os.path.join(path,'d_331_pup_stategain.csv'), index_col=0)])
 try:
     df['r'] = [np.float(r.strip('[]')) for r in df['r'].values]
     df['r_se'] = [np.float(r.strip('[]')) for r in df['r_se'].values]
