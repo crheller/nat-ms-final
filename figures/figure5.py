@@ -15,19 +15,17 @@ mpl.rcParams['axes.spines.top'] = False
 mpl.rcParams['font.size'] = 12
 
 import sys
-sys.path.append("/auto/users/hellerc/code/projects/nat_pupil_ms/")
+sys.path.append("/auto/users/hellerc/code/projects/nat-ms-final/")
 from path_settings import PY_FIGURES_DIR
 from global_settings import CPN_SITES, HIGHR_SITES
 import colors
-import sys
-sys.path.append("/auto/users/hellerc/code/projects/nat-ms-final/FactorAnalysis")
 from FactorAnalysis.loader import load_pop_metrics
 
-savefig = True
+savefig = False
 fig_fn = PY_FIGURES_DIR + "figure5.svg"
 fig_fnS1 = PY_FIGURES_DIR + "S1_figure5.svg"
 
-modelname = "factor_analysis"
+modelname = "factor_analysis_pca"
 
 sites = CPN_SITES + HIGHR_SITES
 batches = [331]*len(CPN_SITES) + [322 if s.startswith("BOL")==False else 294 for s in HIGHR_SITES]

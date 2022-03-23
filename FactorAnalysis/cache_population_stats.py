@@ -5,9 +5,11 @@ for each site, calculate:
     - % shared variance
     - loading similarity
     - dimensionality
+    - also compute dimensionality / components of full space, including stimuli, using PCA (trial-averaged or raw data?)
+        - think raw data is okay, but we'll do both. The point we want to make is that variability coflucates in a space with dim < total dim
 """
 import numpy as np
-from sklearn.decomposition import FactorAnalysis
+from sklearn.decomposition import FactorAnalysis, PCA
 from scipy.signal import argrelextrema
 from charlieTools.nat_sounds_ms.decoding import load_site
 import pickle
@@ -96,21 +98,38 @@ nstim = X.shape[-1] * X.shape[-2]
 nCells = X.shape[0]
 Xsub = (X - X.mean(axis=1, keepdims=True))
 Xfa = Xsub.reshape(X.shape[0], X.shape[1], nstim)
+Xpca = X.reshape(X.shape[0], X.shape[1], nstim)
+
 pm = pup_mask.reshape(pup_mask.shape[0], pup_mask.shape[1], nstim)
 if shuffle:
     pm = pm[:, np.random.choice(range(pup_mask.shape[1]), pup_mask.shape[1], replace=False), :]
+
+# large / small trial-average matrices
+Xpca_ta_large = np.concatenate([Xpca[:, pm[0, :, i]==True, [i]].mean(axis=1, keepdims=True) for i in range(Xpca.shape[-1])], axis=-1)[:, np.newaxis, :]
+Xpca_ta_small = np.concatenate([Xpca[:, pm[0, :, i]==False, [i]].mean(axis=1, keepdims=True) for i in range(Xpca.shape[-1])], axis=-1)[:, np.newaxis, :]
+
 nfold = nstim
-nComponents = 20
+nComponents = 50
 if X.shape[0] < nComponents:
     nComponents = X.shape[0]
 
+if X.shape[0] > nstim:
+    smallestDim = nstim
+else:
+    smallestDim = X.shape[0]
+
 log.info("\nComputing log-likelihood across models / nfolds")
-LL = np.zeros((20, nfold))
-LL_small = np.zeros((20, nfold))
-LL_large = np.zeros((20, nfold))
+LL = np.zeros((nComponents, nfold))
+LL_small = np.zeros((nComponents, nfold))
+LL_large = np.zeros((nComponents, nfold))
+LL_pca_small = np.zeros((nComponents, nfold))
+LL_pca_large = np.zeros((nComponents, nfold))
+LL_pca_ta_small = np.zeros((nComponents, nfold))
+LL_pca_ta_large = np.zeros((nComponents, nfold))
 for ii in np.arange(1, LL.shape[0]+1):
     log.info(f"{ii} / {LL.shape[0]}")
     fa = FactorAnalysis(n_components=ii, random_state=0) # init model
+    pca = PCA(n_components=ii)
     for nf in range(nfold):
         fit = [x for x in np.arange(0, nstim) if x != nf]
 
@@ -126,6 +145,35 @@ for ii in np.arange(1, LL.shape[0]+1):
         # fit small pupil
         fa.fit(Xfa[:, :, fit][:, pm[0, :, fit].T==False].reshape(Xfa.shape[0], -1).T) # fit model 
         LL_small[ii-1, nf] = fa.score(Xfa[:, pm[0, :, nf]==False, nf].T)
+
+        # PCA
+        try:
+            pca.fit(Xpca_ta_large[:, 0, fit].T)
+            LL_pca_ta_large[ii-1, nf] = pca.score(Xpca_ta_large[:, 0, [nf]].T)
+
+            pca.fit(Xpca_ta_small[:, 0, fit].T)
+            LL_pca_ta_small[ii-1, nf] = pca.score(Xpca_ta_small[:, 0, [nf]].T)
+        except:
+            LL_pca_ta_large[ii-1, nf] = np.nan
+            LL_pca_ta_small[ii-1, nf] = np.nan
+
+        # CV different for full data pca
+        _xpca_flat = Xpca.reshape(nCells, -1)
+        _pmask_flat = pm[0, :, :].reshape(1, -1)
+        _xpca_lrg = _xpca_flat[:, _pmask_flat[0]==True]
+        _xpca_sm = _xpca_flat[:, _pmask_flat[0]==False]
+
+        nval = int(_xpca_lrg.shape[-1] / nfold)
+        val = np.arange(nf*nval, (nf+1)*nval)
+        fit = np.array([v for v in np.arange(0, _xpca_lrg.shape[-1]) if v not in val])
+        pca.fit(_xpca_lrg[:, fit].T)
+        LL_pca_large[ii-1, nf] = pca.score(_xpca_lrg[:, val].T)
+
+        nval = int(_xpca_sm.shape[-1] / nfold)
+        val = np.arange(nf*nval, (nf+1)*nval)
+        fit = np.array([v for v in np.arange(0, _xpca_sm.shape[-1]) if v not in val])
+        pca.fit(_xpca_sm[:, fit].T)
+        LL_pca_small[ii-1, nf] = pca.score(_xpca_sm[:, val].T)
 
 
 log.info("Estimating %sv and loading similarity for the 'best' model")
@@ -197,6 +245,18 @@ sp_sv_all = get_sv(fa_small)
 sp_ls_all = get_loading_similarity(fa_small)
 sp_dim95_all = get_dim95(fa_small)
 
+
+
+# PCA results
+bp_pca_ta_dim_sem = np.std([get_dim(LL_pca_ta_large[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
+bp_pca_ta_dim = get_dim(LL_pca_ta_large.mean(axis=-1))
+sp_pca_ta_dim_sem = np.std([get_dim(LL_pca_ta_small[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
+sp_pca_ta_dim = get_dim(LL_pca_ta_small.mean(axis=-1))
+bp_pca_dim_sem = np.std([get_dim(LL_pca_large[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
+bp_pca_dim = get_dim(LL_pca_large.mean(axis=-1))
+sp_pca_dim_sem = np.std([get_dim(LL_pca_small[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
+sp_pca_dim = get_dim(LL_pca_small.mean(axis=-1))
+
 # Save results
 results = {
     "all_sv": all_sv.mean(),
@@ -246,6 +306,16 @@ results = {
         "sp_ls_all": sp_ls_all,
         "bp_dim95_all": bp_dim95_all,
         "sp_dim95_all": sp_dim95_all
+    },
+    "pca_results": {
+        "bp_full_dim": bp_pca_dim,
+        "bp_full_dim_sem": bp_pca_dim_sem,
+        "sp_full_dim": sp_pca_dim,
+        "sp_full_dim_sem": sp_pca_dim_sem,
+        "bp_ta_dim": bp_pca_ta_dim,
+        "bp_ta_dim_sem": bp_pca_ta_dim_sem,
+        "sp_ta_dim": sp_pca_ta_dim,
+        "sp_ta_dim_sem": sp_pca_ta_dim_sem
     }    
 }
 
