@@ -1,5 +1,5 @@
 """
-Decoding results for factor analysis.
+Decoding results for factor analysis: Show that change in low-D shared factor space is enough to account for d-prime diversity
     * Example site (scatter plot - more intuitive for explaining things)
     * Summary (report R2 and absolute error) for each model
 """
@@ -45,9 +45,9 @@ for i, (s, b) in enumerate(zip(sites, batches)):
         _noise = noise331
     else:
         _noise = noise
-    rmodel = f"dprime_jk10_zscore_fixtdr2-fa{_noise}"                    # reaw data
+    rmodel = f"dprime_jk10_zscore_fixtdr2-fa{_noise}"                        # reaw data
     famodel_null = f"dprime_faModel.ind-null_jk10_zscore_fixtdr2-fa{_noise}" # fixed cov matrix between lrg / small
-    famodel_ind = f"dprime_faModel.ind_jk10_zscore_fixtdr2-fa{_noise}"   # only change ind. variance. (diag cov matrix)
+    famodel_ind = f"dprime_faModel.ind_jk10_zscore_fixtdr2-fa{_noise}"       # only change ind. variance. (diag cov matrix)
     #famodel = f"dprime_faModel.rr1_jk10_zscore_fixtdr2-fa{_noise}"           # full (reduced) rank cov matrix
     famodel = f"dprime_faModel_jk10_zscore_fixtdr2-fa{_noise}"  
 
@@ -123,8 +123,8 @@ for i, (s, b) in enumerate(zip(sites, batches)):
     df_full_fa.loc[(df_null_fa.site==s) & (df_null_fa.batch==b), "r2"] = r2_3
 
 # ================================== BUILD FIGURE =======================================
-f = plt.figure(figsize=(10, 5))
-
+f = plt.figure(figsize=(18, 10))
+ms = 50
 null_ax = plt.subplot2grid((2, 8), (0, 0), colspan=2)
 ind_ax = plt.subplot2grid((2, 8), (0, 2), colspan=2)
 full_ax = plt.subplot2grid((2, 8), (0, 4), colspan=2)
@@ -135,15 +135,15 @@ r2_ax = plt.subplot2grid((2, 8), (0, 7), colspan=1)
 mask = (df.site==site) & (df.batch==batch)
 
 # null model
-null_ax.scatter(df[mask]["delta"], df_null_fa[mask]["delta"], s=15, color="tab:blue", edgecolor="white")
+null_ax.scatter(df[mask]["delta"], df_null_fa[mask]["delta"], s=ms, color="tab:blue", edgecolor="white")
 null_ax.set_title(r"$\Sigma_{small}=\Sigma_{large}=\Psi_{large}$")
 
 # ind model
-ind_ax.scatter(df[mask]["delta"], df_ind_fa[mask]["delta"], s=15, color="tab:orange", edgecolor="white")
+ind_ax.scatter(df[mask]["delta"], df_ind_fa[mask]["delta"], s=ms, color="tab:orange", edgecolor="white")
 ind_ax.set_title(r"$\Sigma_{small}=\Psi_{small}$, $\Sigma_{large}=\Psi_{large}$")
 
 # full model
-full_ax.scatter(df[mask]["delta"], df_full_fa[mask]["delta"], s=15, color="tab:green", edgecolor="white")
+full_ax.scatter(df[mask]["delta"], df_full_fa[mask]["delta"], s=ms, color="tab:green", edgecolor="white")
 full_ax.set_title(r"$\Sigma_{small}=\Sigma_{shared, small}+\Psi_{small}$,"+"\n"+"$\Sigma_{large}=\Sigma_{shared, large}+\Psi_{large}$")
 
 for a in [null_ax, ind_ax, full_ax]:

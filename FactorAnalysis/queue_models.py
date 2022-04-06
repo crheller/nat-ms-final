@@ -2,7 +2,7 @@ import nems.db as nd
 from global_settings import HIGHR_SITES, CPN_SITES
 
 batches = [294, 322, 331]
-modelnames = ["factor_analysis_pca"]
+modelnames = ["factor_analysis_pca_evoked"]
 force_rerun = True
 
 for batch in batches:
@@ -24,4 +24,4 @@ for batch in batches:
                     user='hellerc',
                     force_rerun=force_rerun,
                     reserve_gb=2,
-                    priority=2)
+                    priority=3)

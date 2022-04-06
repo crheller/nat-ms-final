@@ -40,6 +40,10 @@ site = sys.argv[1]
 batch = sys.argv[2]
 modelname = sys.argv[3]
 
+evoked = False
+for op in modelname.split("_"):
+    if op == "evoked":
+        evoked = True
 
 # measure change in dimensionality, %sv, loading sim, across jackknifes
 def get_dim(LL):
@@ -91,6 +95,11 @@ def get_loading_similarity(model, dim=0):
 X, sp_bins, X_pup, pup_mask, epochs = load_site(site=site, batch=int(batch), regress_pupil=False, use_xforms=False, return_epoch_list=True)
 shuffle = False
 
+if evoked:
+    log.info("Extracting only evoked activity")
+    X = X[:, :, :, sp_bins[0, 0, 0, :]==False]
+    pup_mask = pup_mask[:, :, :, sp_bins[0, 0, 0, :]==False]
+
 # fit all stim together, after subtracting psth
 # "special" cross-validation -- fitting individual stims doesn't work, not enough data
 # instead, leave-one-stim out fitting to find dims that are shared / stimulus-independent
@@ -99,6 +108,7 @@ nCells = X.shape[0]
 Xsub = (X - X.mean(axis=1, keepdims=True))
 Xfa = Xsub.reshape(X.shape[0], X.shape[1], nstim)
 Xpca = X.reshape(X.shape[0], X.shape[1], nstim)
+Xpca_ta = X.mean(axis=1, keepdims=True).reshape(X.shape[0], 1, nstim)
 
 pm = pup_mask.reshape(pup_mask.shape[0], pup_mask.shape[1], nstim)
 if shuffle:
@@ -122,6 +132,8 @@ log.info("\nComputing log-likelihood across models / nfolds")
 LL = np.zeros((nComponents, nfold))
 LL_small = np.zeros((nComponents, nfold))
 LL_large = np.zeros((nComponents, nfold))
+LL_pca_all = np.zeros((nComponents, nfold))
+LL_pca_ta_all = np.zeros((nComponents, nfold))
 LL_pca_small = np.zeros((nComponents, nfold))
 LL_pca_large = np.zeros((nComponents, nfold))
 LL_pca_ta_small = np.zeros((nComponents, nfold))
@@ -148,12 +160,16 @@ for ii in np.arange(1, LL.shape[0]+1):
 
         # PCA
         try:
+            pca.fit(Xpca_ta[:, 0, fit].T)
+            LL_pca_ta_all[ii-1, nf] = pca.score(Xpca_ta[:, 0, [nf]].T)
+
             pca.fit(Xpca_ta_large[:, 0, fit].T)
             LL_pca_ta_large[ii-1, nf] = pca.score(Xpca_ta_large[:, 0, [nf]].T)
 
             pca.fit(Xpca_ta_small[:, 0, fit].T)
             LL_pca_ta_small[ii-1, nf] = pca.score(Xpca_ta_small[:, 0, [nf]].T)
         except:
+            LL_pca_ta_all[ii-1, nf] = np.nan
             LL_pca_ta_large[ii-1, nf] = np.nan
             LL_pca_ta_small[ii-1, nf] = np.nan
 
@@ -174,6 +190,12 @@ for ii in np.arange(1, LL.shape[0]+1):
         fit = np.array([v for v in np.arange(0, _xpca_sm.shape[-1]) if v not in val])
         pca.fit(_xpca_sm[:, fit].T)
         LL_pca_small[ii-1, nf] = pca.score(_xpca_sm[:, val].T)
+
+        nval = int(_xpca_flat.shape[-1] / nfold)
+        val = np.arange(nf*nval, (nf+1)*nval)
+        fit = np.array([v for v in np.arange(0, _xpca_flat.shape[-1]) if v not in val])
+        pca.fit(_xpca_flat[:, fit].T)
+        LL_pca_all[ii-1, nf] = pca.score(_xpca_flat[:, val].T)
 
 
 log.info("Estimating %sv and loading similarity for the 'best' model")
@@ -257,6 +279,11 @@ bp_pca_dim = get_dim(LL_pca_large.mean(axis=-1))
 sp_pca_dim_sem = np.std([get_dim(LL_pca_small[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
 sp_pca_dim = get_dim(LL_pca_small.mean(axis=-1))
 
+pca_ta_dim_sem = np.std([get_dim(LL_pca_ta_all[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
+pca_ta_dim = get_dim(LL_pca_ta_all.mean(axis=-1))
+pca_dim_sem = np.std([get_dim(LL_pca_all[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
+pca_dim = get_dim(LL_pca_all.mean(axis=-1))
+
 # Save results
 results = {
     "all_sv": all_sv.mean(),
@@ -284,6 +311,7 @@ results = {
     "bp_dim_sem": bp_dim_sem,
     "sp_dim_sem": sp_dim_sem,
     "nCells": X.shape[0],
+    "nStim": nstim,
     "final_fit": {
         "fa_all.components_": fa_all.components_,
         "fa_all.sigma_shared": sigma_shared(fa_all),
@@ -315,7 +343,12 @@ results = {
         "bp_ta_dim": bp_pca_ta_dim,
         "bp_ta_dim_sem": bp_pca_ta_dim_sem,
         "sp_ta_dim": sp_pca_ta_dim,
-        "sp_ta_dim_sem": sp_pca_ta_dim_sem
+        "sp_ta_dim_sem": sp_pca_ta_dim_sem,
+
+        "ta_dim": pca_ta_dim,
+        "ta_dim_sem": pca_ta_dim_sem,
+        "full_dim": pca_dim,
+        "full_dim_sem": pca_dim_sem
     }    
 }
 

@@ -32,7 +32,7 @@ nComponents331 = 8
 sig_pairs_only = False
 recache = True
 savefig = False
-fig_fn = PY_FIGURES_DIR + 'S3_figure4.svg'
+fig_fn = PY_FIGURES_DIR + 'figure4_S3.svg'
 
 np.random.seed(123)
 

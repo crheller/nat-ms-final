@@ -33,8 +33,8 @@ mpl.rcParams['font.size'] = 8
 np.random.seed(123)
 savefig = True
 fig_fn = PY_FIGURES_DIR + 'figure4.svg'
-figS1 = PY_FIGURES_DIR + 'S1_figure4.svg'
-figS2 = PY_FIGURES_DIR + 'S2_figure4.svg'
+figS1 = PY_FIGURES_DIR + 'figure4_S1.svg'
+figS2 = PY_FIGURES_DIR + 'figure4_S2.svg'
 
 modelname = 'dprime_jk10_zscore_fixtdr2-fa'
 nComponents = 2
