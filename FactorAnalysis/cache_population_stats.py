@@ -41,9 +41,12 @@ batch = sys.argv[2]
 modelname = sys.argv[3]
 
 evoked = False
+shuffle = False
 for op in modelname.split("_"):
     if op == "evoked":
         evoked = True
+    if op == "shuff":
+        shuffle = True
 
 # measure change in dimensionality, %sv, loading sim, across jackknifes
 def get_dim(LL):
@@ -93,7 +96,6 @@ def get_loading_similarity(model, dim=0):
 
 # load data
 X, sp_bins, X_pup, pup_mask, epochs = load_site(site=site, batch=int(batch), regress_pupil=False, use_xforms=False, return_epoch_list=True)
-shuffle = False
 
 if evoked:
     log.info("Extracting only evoked activity")
@@ -284,6 +286,12 @@ pca_ta_dim = get_dim(LL_pca_ta_all.mean(axis=-1))
 pca_dim_sem = np.std([get_dim(LL_pca_all[:, i]) for i in range(LL.shape[1])]) / np.sqrt(LL.shape[1])
 pca_dim = get_dim(LL_pca_all.mean(axis=-1))
 
+pca_big = PCA(n_components=bp_pca_ta_dim) 
+pca_big.fit(Xpca_ta_large[:, 0, :].T)
+
+pca_small = PCA(n_components=sp_pca_ta_dim) 
+pca_small.fit(Xpca_ta_small[:, 0, :].T)
+
 # Save results
 results = {
     "all_sv": all_sv.mean(),
@@ -344,7 +352,8 @@ results = {
         "bp_ta_dim_sem": bp_pca_ta_dim_sem,
         "sp_ta_dim": sp_pca_ta_dim,
         "sp_ta_dim_sem": sp_pca_ta_dim_sem,
-
+        "pca_ta_large.components_": pca_big.components_,
+        "pca_ta_small.components_": pca_small.components_,
         "ta_dim": pca_ta_dim,
         "ta_dim_sem": pca_ta_dim_sem,
         "full_dim": pca_dim,

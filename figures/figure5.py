@@ -28,6 +28,8 @@ from global_settings import CPN_SITES, HIGHR_SITES
 import colors
 from FactorAnalysis.loader import load_pop_metrics
 
+from nems_lbhb.analysis.pop_models import subspace_overlap
+
 savefig = False
 fig_fn = PY_FIGURES_DIR + "figure5.svg"
 fig_fnS1 = PY_FIGURES_DIR + "figure5_S1.svg"

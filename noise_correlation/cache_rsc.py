@@ -9,6 +9,7 @@ Compute noise correlations for the following conditions:
 
 import nems.db as nd
 import nems.xforms as xforms
+import nems.xform_helper as xhelp
 import nems_lbhb.baphy as nb
 from nems_lbhb.preprocessing import mask_high_repetion_stims, create_pupil_mask, fix_cpn_epochs, movement_mask
 import nems_lbhb.baphy_io as io
@@ -56,16 +57,8 @@ batch = sys.argv[2]
 modelname = sys.argv[3]
 
 perstim = 'perstim' in modelname
-pupil_regress = 'pr' in modelname
-lv_regress = 'lvr' in modelname
 balanced = 'bal' in modelname
-regression_method1 = 'rm1' in modelname
-regression_method2 = 'rm2' in modelname
 filt = 'fft' in modelname
-
-if lv_regress:
-    raise DeprecationWarning("No longer doing LV regression. Script need to be updated to handle this. \n"
-                                "CRH 05/08/2020")
 if balanced:
     raise DeprecationWarning("Removed pupil balancing option (temporarily?) CRH 05/08/2020")
 
@@ -73,7 +66,7 @@ keys = modelname.split('_')
 boxcar = False
 evoked = False
 fs4 = False
-move_mask = False
+subtract_xforms_pred = False
 for k in keys:
     if 'fft' in k:
         low_c = np.float(k.split('-')[0][3:])
@@ -84,28 +77,14 @@ for k in keys:
         evoked = True
     if 'fs4' in k:
         fs4 = True
-    if k.startswith('mvm'):
-        try:
-            threshold = float(k.split('-')[1])
-            if threshold == 1:
-                threshold = 1
-            else:
-                threshold /= 100
-            binsize = float(k.split('-')[2])
-            if binsize > 10:
-                binsize /= 100
-            else:
-                pass
-            move_mask = (threshold, binsize)
-        except:
-            move_mask = (0.25, 1)
-log.info(move_mask)
+    if k.startswith("sub"):
+        subtract_xforms_pred = True
+        xforms_modelname = k[3:].replace("*", "_")
+
 path = '/auto/users/hellerc/results/nat_pupil_ms/noise_correlations_final/'
 
 log.info('Computing noise correlations for site: {0} with options: \n \
-            regress pupil: {1} \n \
-            regress lv: {2} \n \
-            balanced pupil epochs: {3}'.format(site, pupil_regress, lv_regress, balanced))
+            balanced pupil epochs: {1}'.format(site, balanced))
 
 log.info("Saving results to: {}".format(path))
 
@@ -118,29 +97,20 @@ if filt & (fs4 == False):
 else:
     fs = 4
 
-    if pupil_regress:
-        xforms_modelname = 'ns.fs4.pup-ld-st.pup-hrc-psthfr_sdexp.SxR.bound_jk.nf10-basic'
-
-    else:
-        xforms_modelname = 'ns.fs4.pup-ld-st.pup-hrc-psthfr_sdexp.SxR.bound_jk.nf10-basic'
-
 if batch == 294:
     xforms_modelname = xforms_modelname.replace('pup-ld', 'pup.voc-ld')
 
-if move_mask != False:
-    xforms_modelname = xforms_modelname.replace('-hrc', '-mvm-hrc')
-
 cellid, _ = io.parse_cellid({'batch': batch, 'cellid': site})
 
-if not regression_method2:
+# just load raw data
+if not subtract_xforms_pred:
     # only load model fit if using for regression
     if 0: #batch != 331:
         options = {'cellid': site, 'rasterfs': fs, 'batch': batch, 'pupil': True, 'stim': False}
         if batch == 294:
             options['runclass'] = 'VOC'
         rec = nb.baphy_load_recording_file(**options)
-        if move_mask != False:
-            raise ValueError("Movement mask not set up for batch 289 or 294 yet")
+
     else:
         manager = BAPHYExperiment(cellid=site, batch=batch)
         options = {'rasterfs': 4, 'resp': True, 'stim': False, 'pupil': True, 'pupil_variable_name': 'area'}
@@ -162,57 +132,23 @@ if not regression_method2:
         epochs = [epoch for epoch in rec.epochs.name.unique() if 'STIM_' in epoch]
     else:
         epochs = [epoch for epoch in rec.epochs.name.unique() if 'STIM_00' in epoch]
+    
     rec = rec.and_mask(epochs)
-
-    if (move_mask != False) & (batch == 331):
-        rec = movement_mask(rec, threshold=move_mask[0], binsize=move_mask[1])['rec'] 
-    elif (move_mask != False) & (batch != 331):
-        raise ValueError("Movement mask not set up for batches 289 and 294 yet")
-    else:
-        pass
 
     rec = rec.apply_mask(reset_epochs=True)
 
-
 else:
-    recache=False
-    if batch == 331:
-        recache=False
-        if movement_mask != False:
-            xforms_modelname = xforms_modelname.replace('-mvm-hrc', '-epcpn-mvm-hrc')
-        else:
-            xforms_modelname = xforms_modelname.replace('-hrc', '-epcpn-hrc')
+    # load xforms model, subtract prediction
     log.info("Load recording from xforms model {}".format(xforms_modelname))
-    rec_path = f'/auto/users/hellerc/results/nat_pupil_ms/pr_recordings/{batch}/'
+    # 'psth' signal returned in this function is 'pred'
     rec = preproc.generate_state_corrected_psth(batch=batch, modelname=xforms_modelname, cellids=cellid, 
-                                        siteid=site,
-                                        cache_path=rec_path, recache=recache)
+                                        siteid=site, recache=False)
 
 # filtering / pupil regression must always go first!
-if pupil_regress & lv_regress:
-
-    if regression_method1:
-        log.info('Regress first and second order pupil using brute force method')
-        #rec = preproc.regress_state(rec, state_sigs=['pupil', 'lv'], regress=['pupil', 'lv'])
-        rec = preproc.regress_state(rec, state_sigs=['pupil'], regress=['pupil'])
-    elif regression_method2:
-        log.info('Regress first and second order pupil by subtracting model pred')
-        mod_data = rec['resp']._data - rec['pred']._data + rec['psth_sp']._data
-        rec['resp'] = rec['resp']._modified_copy(mod_data)
-    else:
-        raise ValueError("No regression method specified!")
-
-elif pupil_regress:
-
-    if regression_method1:
-        log.info('Regress first order pupil using brute force method')
-        rec = preproc.regress_state(rec, state_sigs=['pupil'], regress=['pupil'])
-    elif regression_method2:
-        log.info('Regress first order pupil by subtracting model pred')
-        mod_data = rec['resp']._data - rec['psth']._data + rec['psth_sp']._data
-        rec['resp'] = rec['resp']._modified_copy(mod_data)
-    else:
-        raise ValueError("No regression method specified!")
+if subtract_xforms_pred:
+    log.info('Regress state by subtracting xforms model pred')
+    mod_data = rec['resp']._data - rec['psth']._data + rec['psth_sp']._data
+    rec['resp'] = rec['resp']._modified_copy(mod_data)
 
 if filt:
     log.info("Band-pass filter spike counts between {0} and {1} Hz".format(low_c, high_c))
@@ -241,10 +177,7 @@ else:
 rec = rec.apply_mask(reset_epochs=True)
 
 # get the pupil range for each stimulus pair, then save the mean of this for the site
-use_xforms = regression_method2
-X, sp_bins, X_pup, pup_mask = load_site(site=site, batch=batch, 
-                                       regress_pupil=pupil_regress,
-                                       use_xforms=use_xforms)
+X, sp_bins, X_pup, pup_mask = load_site(site=site, batch=batch)
 ncells = X.shape[0]
 nreps_raw = X.shape[1]
 nstim = X.shape[2]

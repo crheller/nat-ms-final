@@ -3,15 +3,10 @@ import os
 import numpy as np
 import sys
 
-def load_noise_correlation(modelname, xforms_model='NULL', path=None, batch=None):
+def load_noise_correlation(modelname, xforms_model=None, path=None, batch=None):
 
     if path is None:
         path = '/auto/users/hellerc/results/nat_pupil_ms/noise_correlations_final/'
-    else:
-        pass
-
-    if xforms_model is None:
-        xforms_model = 'ns.fs4.pup-ld.pop-st.pup-hrc-apm-psthfr-addmeta-aev_stategain.SxR-lv.1xR.f.pred-stategain.2xR.lv_init.i0.xx1.t7-init.f0.t7.pLV0'
     else:
         pass
 
@@ -30,17 +25,14 @@ def load_noise_correlation(modelname, xforms_model='NULL', path=None, batch=None
         for s in sites:
             if s in ['BOL005c', 'BOL006b']:
                 xf_model = xforms_model.replace('fs4.pup', 'fs4.pup.voc')
-            elif bat == 331:
-                xf_model = xforms_model.replace('-hrc', '-epcpn-hrc')
-            else:
-                xf_model = xforms_model
+
             try:
-                if ('fft' in modelname) | (xforms_model=='NULL'):
+                if ('fft' in modelname) | (xforms_model=='NULL') | (xforms_model is None):
                     df = pd.read_csv(path+str(bat)+'/'+s+'/'+modelname+'.csv', index_col=[0])
                     df['batch'] = bat
                     dfs.append(df)               
                 else:
-                    df = pd.read_csv(path+str(bat)+'/'+s+'/'+xf_model+'/'+modelname+'.csv', index_col=0)
+                    df = pd.read_csv(path+str(bat)+'/'+s+'/'+modelname+f'_sub{xforms_model}.csv', index_col=0)
                     df['batch'] = bat
                     dfs.append(df)
             except:
